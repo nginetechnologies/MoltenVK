@@ -62,172 +62,232 @@ VkResult MVKPhysicalDevice::getExtensionProperties(const char* pLayerName, uint3
 }
 
 void MVKPhysicalDevice::getFeatures(VkPhysicalDeviceFeatures* features) {
-    if (features) { *features = _features; }
+    *features = _features;
 }
 
 void MVKPhysicalDevice::getFeatures(VkPhysicalDeviceFeatures2* features) {
-    if (features) {
-        features->sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
-        features->features = _features;
-        for (auto* next = (VkBaseOutStructure*)features->pNext; next; next = next->pNext) {
-            switch ((uint32_t)next->sType) {
-                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES: {
-                    auto* storageFeatures = (VkPhysicalDevice16BitStorageFeatures*)next;
-                    storageFeatures->storageBuffer16BitAccess = true;
-                    storageFeatures->uniformAndStorageBuffer16BitAccess = true;
-                    storageFeatures->storagePushConstant16 = true;
-                    storageFeatures->storageInputOutput16 = true;
-                    break;
-                }
-                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES_KHR: {
-                    auto* storageFeatures = (VkPhysicalDevice8BitStorageFeaturesKHR*)next;
-                    storageFeatures->storageBuffer8BitAccess = true;
-                    storageFeatures->uniformAndStorageBuffer8BitAccess = true;
-                    storageFeatures->storagePushConstant8 = true;
-                    break;
-                }
-                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT16_INT8_FEATURES_KHR: {
-                    auto* f16Features = (VkPhysicalDeviceFloat16Int8FeaturesKHR*)next;
-                    f16Features->shaderFloat16 = true;
-                    f16Features->shaderInt8 = true;
-                    break;
-                }
-                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFORM_BUFFER_STANDARD_LAYOUT_FEATURES_KHR: {
-                    auto* uboLayoutFeatures = (VkPhysicalDeviceUniformBufferStandardLayoutFeaturesKHR*)next;
-                    uboLayoutFeatures->uniformBufferStandardLayout = true;
-                    break;
-                }
-                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VARIABLE_POINTER_FEATURES: {
-                    auto* varPtrFeatures = (VkPhysicalDeviceVariablePointerFeatures*)next;
-                    varPtrFeatures->variablePointersStorageBuffer = true;
-                    varPtrFeatures->variablePointers = true;
-                    break;
-                }
-                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_INTERLOCK_FEATURES_EXT: {
-                    auto* interlockFeatures = (VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT*)next;
-                    interlockFeatures->fragmentShaderSampleInterlock = _metalFeatures.rasterOrderGroups;
-                    interlockFeatures->fragmentShaderPixelInterlock = _metalFeatures.rasterOrderGroups;
-                    interlockFeatures->fragmentShaderShadingRateInterlock = false;    // Requires variable rate shading; not supported yet in Metal
-                    break;
-                }
-                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT: {
-                    auto* hostQueryResetFeatures = (VkPhysicalDeviceHostQueryResetFeaturesEXT*)next;
-                    hostQueryResetFeatures->hostQueryReset = true;
-                    break;
-                }
-                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT: {
-                    auto* scalarLayoutFeatures = (VkPhysicalDeviceScalarBlockLayoutFeaturesEXT*)next;
-                    scalarLayoutFeatures->scalarBlockLayout = true;
-                    break;
-                }
-                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_FEATURES_EXT: {
-                    auto* texelBuffAlignFeatures = (VkPhysicalDeviceTexelBufferAlignmentFeaturesEXT*)next;
-                    texelBuffAlignFeatures->texelBufferAlignment = _metalFeatures.texelBuffers && [_mtlDevice respondsToSelector: @selector(minimumLinearTextureAlignmentForPixelFormat:)];
-                    break;
-                }
-                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_ATTRIBUTE_DIVISOR_FEATURES_EXT: {
-                    auto* divisorFeatures = (VkPhysicalDeviceVertexAttributeDivisorFeaturesEXT*)next;
-                    divisorFeatures->vertexAttributeInstanceRateDivisor = true;
-                    divisorFeatures->vertexAttributeInstanceRateZeroDivisor = true;
-                    break;
-                }
-                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_FEATURES_EXTX: {
-                    auto* portabilityFeatures = (VkPhysicalDevicePortabilitySubsetFeaturesEXTX*)next;
-					portabilityFeatures->constantAlphaColorBlendFactors = true;
-                    portabilityFeatures->triangleFans = false;
-					portabilityFeatures->pointPolygons = false;
-                    portabilityFeatures->separateStencilMaskRef = true;
-					portabilityFeatures->events = true;
-                    portabilityFeatures->standardImageViews = _mvkInstance->getMoltenVKConfiguration()->fullImageViewSwizzle || _metalFeatures.nativeTextureSwizzle;
-                    portabilityFeatures->samplerMipLodBias = false;
-					portabilityFeatures->mutableComparisonSamplers = _metalFeatures.depthSampleCompare;
-					portabilityFeatures->tessellationIsolines = false;
-					portabilityFeatures->tessellationPointMode = false;
-					portabilityFeatures->shaderSampleRateInterpolationFunctions = false;
-                    break;
-                }
-                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_FUNCTIONS_2_FEATURES_INTEL: {
-                    auto* shaderIntFuncsFeatures = (VkPhysicalDeviceShaderIntegerFunctions2FeaturesINTEL*)next;
-                    shaderIntFuncsFeatures->shaderIntegerFunctions2 = true;
-                    break;
-                }
-                case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_FEATURES_EXT: {
-                    auto* inlineUniformBlockFeatures = (VkPhysicalDeviceInlineUniformBlockFeaturesEXT*)next;
-                    inlineUniformBlockFeatures->inlineUniformBlock = true;
-                    inlineUniformBlockFeatures->descriptorBindingInlineUniformBlockUpdateAfterBind = true;
-                    break;
-                }
-                default:
-                    break;
-            }
-        }
-    }
+	features->sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2;
+	features->features = _features;
+	for (auto* next = (VkBaseOutStructure*)features->pNext; next; next = next->pNext) {
+		switch ((uint32_t)next->sType) {
+			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_16BIT_STORAGE_FEATURES: {
+				auto* storageFeatures = (VkPhysicalDevice16BitStorageFeatures*)next;
+				storageFeatures->storageBuffer16BitAccess = true;
+				storageFeatures->uniformAndStorageBuffer16BitAccess = true;
+				storageFeatures->storagePushConstant16 = true;
+				storageFeatures->storageInputOutput16 = true;
+				break;
+			}
+			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_8BIT_STORAGE_FEATURES_KHR: {
+				auto* storageFeatures = (VkPhysicalDevice8BitStorageFeaturesKHR*)next;
+				storageFeatures->storageBuffer8BitAccess = true;
+				storageFeatures->uniformAndStorageBuffer8BitAccess = true;
+				storageFeatures->storagePushConstant8 = true;
+				break;
+			}
+			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FLOAT16_INT8_FEATURES_KHR: {
+				auto* f16Features = (VkPhysicalDeviceFloat16Int8FeaturesKHR*)next;
+				f16Features->shaderFloat16 = true;
+				f16Features->shaderInt8 = true;
+				break;
+			}
+			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_UNIFORM_BUFFER_STANDARD_LAYOUT_FEATURES_KHR: {
+				auto* uboLayoutFeatures = (VkPhysicalDeviceUniformBufferStandardLayoutFeaturesKHR*)next;
+				uboLayoutFeatures->uniformBufferStandardLayout = true;
+				break;
+			}
+			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VARIABLE_POINTER_FEATURES: {
+				auto* varPtrFeatures = (VkPhysicalDeviceVariablePointerFeatures*)next;
+				varPtrFeatures->variablePointersStorageBuffer = true;
+				varPtrFeatures->variablePointers = true;
+				break;
+			}
+			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_INTERLOCK_FEATURES_EXT: {
+				auto* interlockFeatures = (VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT*)next;
+				interlockFeatures->fragmentShaderSampleInterlock = _metalFeatures.rasterOrderGroups;
+				interlockFeatures->fragmentShaderPixelInterlock = _metalFeatures.rasterOrderGroups;
+				interlockFeatures->fragmentShaderShadingRateInterlock = false;    // Requires variable rate shading; not supported yet in Metal
+				break;
+			}
+			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT: {
+				auto* hostQueryResetFeatures = (VkPhysicalDeviceHostQueryResetFeaturesEXT*)next;
+				hostQueryResetFeatures->hostQueryReset = true;
+				break;
+			}
+			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT: {
+				auto* scalarLayoutFeatures = (VkPhysicalDeviceScalarBlockLayoutFeaturesEXT*)next;
+				scalarLayoutFeatures->scalarBlockLayout = true;
+				break;
+			}
+			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_FEATURES_EXT: {
+				auto* texelBuffAlignFeatures = (VkPhysicalDeviceTexelBufferAlignmentFeaturesEXT*)next;
+				texelBuffAlignFeatures->texelBufferAlignment = _metalFeatures.texelBuffers && [_mtlDevice respondsToSelector: @selector(minimumLinearTextureAlignmentForPixelFormat:)];
+				break;
+			}
+			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_ATTRIBUTE_DIVISOR_FEATURES_EXT: {
+				auto* divisorFeatures = (VkPhysicalDeviceVertexAttributeDivisorFeaturesEXT*)next;
+				divisorFeatures->vertexAttributeInstanceRateDivisor = true;
+				divisorFeatures->vertexAttributeInstanceRateZeroDivisor = true;
+				break;
+			}
+			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_FEATURES_EXTX: {
+				auto* portabilityFeatures = (VkPhysicalDevicePortabilitySubsetFeaturesEXTX*)next;
+				portabilityFeatures->constantAlphaColorBlendFactors = true;
+				portabilityFeatures->triangleFans = false;
+				portabilityFeatures->pointPolygons = false;
+				portabilityFeatures->separateStencilMaskRef = true;
+				portabilityFeatures->events = true;
+				portabilityFeatures->standardImageViews = _mvkInstance->getMoltenVKConfiguration()->fullImageViewSwizzle || _metalFeatures.nativeTextureSwizzle;
+				portabilityFeatures->samplerMipLodBias = false;
+				portabilityFeatures->mutableComparisonSamplers = _metalFeatures.depthSampleCompare;
+				portabilityFeatures->tessellationIsolines = false;
+				portabilityFeatures->tessellationPointMode = false;
+				portabilityFeatures->shaderSampleRateInterpolationFunctions = false;
+				break;
+			}
+			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES: {
+				auto* samplerYcbcrConvFeatures = (VkPhysicalDeviceSamplerYcbcrConversionFeatures*)next;
+				samplerYcbcrConvFeatures->samplerYcbcrConversion = true;
+				break;
+			}
+			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_INTEGER_FUNCTIONS_2_FEATURES_INTEL: {
+				auto* shaderIntFuncsFeatures = (VkPhysicalDeviceShaderIntegerFunctions2FeaturesINTEL*)next;
+				shaderIntFuncsFeatures->shaderIntegerFunctions2 = true;
+				break;
+			}
+			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_INLINE_UNIFORM_BLOCK_FEATURES_EXT: {
+				auto* inlineUniformBlockFeatures = (VkPhysicalDeviceInlineUniformBlockFeaturesEXT*)next;
+				inlineUniformBlockFeatures->inlineUniformBlock = true;
+				inlineUniformBlockFeatures->descriptorBindingInlineUniformBlockUpdateAfterBind = true;
+				break;
+			}
+			default:
+				break;
+		}
+	}
 }
 
 void MVKPhysicalDevice::getProperties(VkPhysicalDeviceProperties* properties) {
-    if (properties) { *properties = _properties; }
+	*properties = _properties;
 }
 
 void MVKPhysicalDevice::getProperties(VkPhysicalDeviceProperties2* properties) {
-    if (properties) {
-        properties->sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
-        properties->properties = _properties;
-		for (auto* next = (VkBaseOutStructure*)properties->pNext; next; next = next->pNext) {
-			switch ((uint32_t)next->sType) {
-            case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_POINT_CLIPPING_PROPERTIES: {
-                auto* pointClipProps = (VkPhysicalDevicePointClippingProperties*)next;
-                pointClipProps->pointClippingBehavior = VK_POINT_CLIPPING_BEHAVIOR_ALL_CLIP_PLANES;
-                break;
-            }
-            case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_3_PROPERTIES: {
-                auto* maint3Props = (VkPhysicalDeviceMaintenance3Properties*)next;
-                maint3Props->maxPerSetDescriptors = (_metalFeatures.maxPerStageBufferCount + _metalFeatures.maxPerStageTextureCount + _metalFeatures.maxPerStageSamplerCount) * 4;
-                maint3Props->maxMemoryAllocationSize = _metalFeatures.maxMTLBufferSize;
-                break;
-            }
-            case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PUSH_DESCRIPTOR_PROPERTIES_KHR: {
-                auto* pushDescProps = (VkPhysicalDevicePushDescriptorPropertiesKHR*)next;
-                pushDescProps->maxPushDescriptors = _properties.limits.maxPerStageResources;
-                break;
-            }
-            case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_PROPERTIES_EXT: {
-                auto* texelBuffAlignProps = (VkPhysicalDeviceTexelBufferAlignmentPropertiesEXT*)next;
-                // Save the 'next' pointer; we'll unintentionally overwrite it
-                // on the next line. Put it back when we're done.
-                void* savedNext = texelBuffAlignProps->pNext;
-                *texelBuffAlignProps = _texelBuffAlignProperties;
-                texelBuffAlignProps->pNext = savedNext;
-                break;
-            }
-            case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_ATTRIBUTE_DIVISOR_PROPERTIES_EXT: {
-                auto* divisorProps = (VkPhysicalDeviceVertexAttributeDivisorPropertiesEXT*)next;
-                divisorProps->maxVertexAttribDivisor = kMVKUndefinedLargeUInt32;
-                break;
-            }
+	properties->sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2;
+	properties->properties = _properties;
+	for (auto* next = (VkBaseOutStructure*)properties->pNext; next; next = next->pNext) {
+		switch ((uint32_t)next->sType) {
+			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_POINT_CLIPPING_PROPERTIES: {
+				auto* pointClipProps = (VkPhysicalDevicePointClippingProperties*)next;
+				pointClipProps->pointClippingBehavior = VK_POINT_CLIPPING_BEHAVIOR_ALL_CLIP_PLANES;
+				break;
+			}
+			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_3_PROPERTIES: {
+				auto* maint3Props = (VkPhysicalDeviceMaintenance3Properties*)next;
+				maint3Props->maxPerSetDescriptors = (_metalFeatures.maxPerStageBufferCount + _metalFeatures.maxPerStageTextureCount + _metalFeatures.maxPerStageSamplerCount) * 4;
+				maint3Props->maxMemoryAllocationSize = _metalFeatures.maxMTLBufferSize;
+				break;
+			}
+			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PUSH_DESCRIPTOR_PROPERTIES_KHR: {
+				auto* pushDescProps = (VkPhysicalDevicePushDescriptorPropertiesKHR*)next;
+				pushDescProps->maxPushDescriptors = _properties.limits.maxPerStageResources;
+				break;
+			}
+			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_TEXEL_BUFFER_ALIGNMENT_PROPERTIES_EXT: {
+				auto* texelBuffAlignProps = (VkPhysicalDeviceTexelBufferAlignmentPropertiesEXT*)next;
+				// Save the 'next' pointer; we'll unintentionally overwrite it
+				// on the next line. Put it back when we're done.
+				void* savedNext = texelBuffAlignProps->pNext;
+				*texelBuffAlignProps = _texelBuffAlignProperties;
+				texelBuffAlignProps->pNext = savedNext;
+				break;
+			}
+			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VERTEX_ATTRIBUTE_DIVISOR_PROPERTIES_EXT: {
+				auto* divisorProps = (VkPhysicalDeviceVertexAttributeDivisorPropertiesEXT*)next;
+				divisorProps->maxVertexAttribDivisor = kMVKUndefinedLargeUInt32;
+				break;
+			}
+			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ID_PROPERTIES: {
+				populate((VkPhysicalDeviceIDProperties*)next);
+				break;
+			}
 			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_PROPERTIES_EXTX: {
 				auto* portabilityProps = (VkPhysicalDevicePortabilitySubsetPropertiesEXTX*)next;
 				portabilityProps->minVertexInputBindingStrideAlignment = 4;
 				break;
 			}
-            default:
-                break;
-            }
-        }
-    }
+			case VK_STRUCTURE_TYPE_SAMPLER_YCBCR_CONVERSION_IMAGE_FORMAT_PROPERTIES: {
+				auto* samplerYcbcrConvProps = (VkSamplerYcbcrConversionImageFormatProperties*)next;
+				samplerYcbcrConvProps->combinedImageSamplerDescriptorCount = 3;
+				break;
+			}
+			default:
+				break;
+		}
+	}
+}
+
+// Populates the device ID properties structure
+void MVKPhysicalDevice::populate(VkPhysicalDeviceIDProperties* pDevIdProps) {
+
+	uint8_t* uuid;
+	size_t uuidComponentOffset;
+
+	//  ---- Device ID ----------------------------------------------
+	uuid = pDevIdProps->deviceUUID;
+	uuidComponentOffset = 0;
+	mvkClear(uuid, VK_UUID_SIZE);
+
+	// First 4 bytes contains GPU vendor ID
+	uint32_t vendorID = _properties.vendorID;
+	*(uint32_t*)&uuid[uuidComponentOffset] = NSSwapHostIntToBig(vendorID);
+	uuidComponentOffset += sizeof(vendorID);
+
+	// Next 4 bytes contains GPU device ID
+	uint32_t deviceID = _properties.deviceID;
+	*(uint32_t*)&uuid[uuidComponentOffset] = NSSwapHostIntToBig(deviceID);
+	uuidComponentOffset += sizeof(deviceID);
+
+	// Last 8 bytes contain the GPU registry ID
+	uint64_t regID = mvkGetRegistryID(_mtlDevice);
+	*(uint64_t*)&uuid[uuidComponentOffset] = NSSwapHostLongLongToBig(regID);
+	uuidComponentOffset += sizeof(regID);
+
+
+	// ---- Driver ID ----------------------------------------------
+	uuid = pDevIdProps->driverUUID;
+	uuidComponentOffset = 0;
+	mvkClear(uuid, VK_UUID_SIZE);
+
+	// First 4 bytes contains MoltenVK prefix
+	const char* mvkPfx = "MVK";
+	size_t mvkPfxLen = strlen(mvkPfx);
+	mvkCopy(&uuid[uuidComponentOffset], (uint8_t*)mvkPfx, mvkPfxLen);
+	uuidComponentOffset += mvkPfxLen + 1;
+
+	// Next 4 bytes contains MoltenVK version
+	uint32_t mvkVersion = MVK_VERSION;
+	*(uint32_t*)&uuid[uuidComponentOffset] = NSSwapHostIntToBig(mvkVersion);
+	uuidComponentOffset += sizeof(mvkVersion);
+
+	// Next 4 bytes contains highest Metal feature set supported by this device
+	uint32_t mtlFeatSet = getHighestMTLFeatureSet();
+	*(uint32_t*)&uuid[uuidComponentOffset] = NSSwapHostIntToBig(mtlFeatSet);
+	uuidComponentOffset += sizeof(mtlFeatSet);
+
+
+	// ---- LUID ignored for Metal devices ------------------------
+	mvkClear(pDevIdProps->deviceLUID, VK_LUID_SIZE);
+	pDevIdProps->deviceNodeMask = 0;
+	pDevIdProps->deviceLUIDValid = VK_FALSE;
 }
 
 void MVKPhysicalDevice::getFormatProperties(VkFormat format, VkFormatProperties* pFormatProperties) {
-    if (pFormatProperties) {
-		*pFormatProperties = _pixelFormats.getVkFormatProperties(format);
-	}
+	*pFormatProperties = _pixelFormats.getVkFormatProperties(format);
 }
 
-void MVKPhysicalDevice::getFormatProperties(VkFormat format,
-                                            VkFormatProperties2KHR* pFormatProperties) {
-	if (pFormatProperties) {
-		pFormatProperties->sType = VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2_KHR;
-		pFormatProperties->formatProperties = _pixelFormats.getVkFormatProperties(format);
-	}
+void MVKPhysicalDevice::getFormatProperties(VkFormat format, VkFormatProperties2KHR* pFormatProperties) {
+	pFormatProperties->sType = VK_STRUCTURE_TYPE_FORMAT_PROPERTIES_2_KHR;
+	getFormatProperties(format, &pFormatProperties->formatProperties);
 }
 
 VkResult MVKPhysicalDevice::getImageFormatProperties(VkFormat format,
@@ -363,32 +423,41 @@ VkResult MVKPhysicalDevice::getImageFormatProperties(VkFormat format,
 	return VK_SUCCESS;
 }
 
-VkResult MVKPhysicalDevice::getImageFormatProperties(const VkPhysicalDeviceImageFormatInfo2KHR *pImageFormatInfo,
-                                                     VkImageFormatProperties2KHR* pImageFormatProperties) {
+VkResult MVKPhysicalDevice::getImageFormatProperties(const VkPhysicalDeviceImageFormatInfo2 *pImageFormatInfo,
+													 VkImageFormatProperties2* pImageFormatProperties) {
 
-    if ( !pImageFormatInfo || pImageFormatInfo->sType != VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_IMAGE_FORMAT_INFO_2_KHR ) {
-        return VK_ERROR_FORMAT_NOT_SUPPORTED;
-    }
+	for (const auto* nextInfo = (VkBaseInStructure*)pImageFormatInfo->pNext; nextInfo; nextInfo = nextInfo->pNext) {
+		switch (nextInfo->sType) {
+			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_IMAGE_FORMAT_INFO: {
+				// Return information about external memory support for MTLTexture.
+				// Search VkImageFormatProperties2 for the corresponding VkExternalImageFormatProperties and populate it.
+				auto* pExtImgFmtInfo = (VkPhysicalDeviceExternalImageFormatInfo*)nextInfo;
+				for (auto* nextProps = (VkBaseOutStructure*)pImageFormatProperties->pNext; nextProps; nextProps = nextProps->pNext) {
+					if (nextProps->sType == VK_STRUCTURE_TYPE_EXTERNAL_IMAGE_FORMAT_PROPERTIES) {
+						auto* pExtImgFmtProps = (VkExternalImageFormatProperties*)nextProps;
+						pExtImgFmtProps->externalMemoryProperties = getExternalImageProperties(pExtImgFmtInfo->handleType);
+					}
+				}
+				break;
+			}
+			default:
+				break;
+		}
+	}
 
-    if ( !_pixelFormats.isSupported(pImageFormatInfo->format) ) { return VK_ERROR_FORMAT_NOT_SUPPORTED; }
+	if ( !_pixelFormats.isSupported(pImageFormatInfo->format) ) { return VK_ERROR_FORMAT_NOT_SUPPORTED; }
 
 	if ( !getImageViewIsSupported(pImageFormatInfo) ) { return VK_ERROR_FORMAT_NOT_SUPPORTED; }
 
-	if (pImageFormatProperties) {
-		pImageFormatProperties->sType = VK_STRUCTURE_TYPE_IMAGE_FORMAT_PROPERTIES_2_KHR;
-		return getImageFormatProperties(pImageFormatInfo->format, pImageFormatInfo->type,
-										pImageFormatInfo->tiling, pImageFormatInfo->usage,
-										pImageFormatInfo->flags,
-										&pImageFormatProperties->imageFormatProperties);
-	}
-
-	return VK_SUCCESS;
+	return getImageFormatProperties(pImageFormatInfo->format, pImageFormatInfo->type,
+									pImageFormatInfo->tiling, pImageFormatInfo->usage,
+									pImageFormatInfo->flags,
+									&pImageFormatProperties->imageFormatProperties);
 }
 
 // If the image format info links portability image view info, test if an image view of that configuration is supported
-bool MVKPhysicalDevice::getImageViewIsSupported(const VkPhysicalDeviceImageFormatInfo2KHR *pImageFormatInfo) {
-	auto* next = (MVKVkAPIStructHeader*)pImageFormatInfo->pNext;
-	while (next) {
+bool MVKPhysicalDevice::getImageViewIsSupported(const VkPhysicalDeviceImageFormatInfo2 *pImageFormatInfo) {
+	for (const auto* next = (VkBaseInStructure*)pImageFormatInfo->pNext; next; next = next->pNext) {
 		switch ((uint32_t)next->sType) {
 			case VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO: {
 
@@ -397,18 +466,38 @@ bool MVKPhysicalDevice::getImageViewIsSupported(const VkPhysicalDeviceImageForma
 
 				MTLPixelFormat mtlPixFmt;
 				bool useSwizzle;
-				return (MVKImageView::validateSwizzledMTLPixelFormat(&viewInfo, &_pixelFormats, this,
+				return (MVKImageView::validateSwizzledMTLPixelFormat(&viewInfo, this,
 																	 _metalFeatures.nativeTextureSwizzle,
 																	 _mvkInstance->getMoltenVKConfiguration()->fullImageViewSwizzle,
 																	 mtlPixFmt, useSwizzle) == VK_SUCCESS);
 			}
 			default:
-				next = (MVKVkAPIStructHeader*)next->pNext;
 				break;
 		}
 	}
 
 	return true;
+}
+
+void MVKPhysicalDevice::getExternalBufferProperties(const VkPhysicalDeviceExternalBufferInfo* pExternalBufferInfo,
+													VkExternalBufferProperties* pExternalBufferProperties) {
+	pExternalBufferProperties->externalMemoryProperties = getExternalBufferProperties(pExternalBufferInfo->handleType);
+}
+
+static VkExternalMemoryProperties _emptyExtMemProps = {};
+
+VkExternalMemoryProperties& MVKPhysicalDevice::getExternalBufferProperties(VkExternalMemoryHandleTypeFlagBits handleType) {
+	switch (handleType) {
+		case VK_EXTERNAL_MEMORY_HANDLE_TYPE_MTLBUFFER_BIT_KHR:		return _mtlBufferExternalMemoryProperties;
+		default: 													return _emptyExtMemProps;
+	}
+}
+
+VkExternalMemoryProperties& MVKPhysicalDevice::getExternalImageProperties(VkExternalMemoryHandleTypeFlagBits handleType) {
+	switch (handleType) {
+		case VK_EXTERNAL_MEMORY_HANDLE_TYPE_MTLTEXTURE_BIT_KHR:		return _mtlTextureExternalMemoryProperties;
+		default: 													return _emptyExtMemProps;
+	}
 }
 
 
@@ -472,7 +561,7 @@ VkResult MVKPhysicalDevice::getSurfaceFormats(MVKSurface* surface,
 		MTLPixelFormatBGR10A2Unorm,
 	};
 
-	MVKVectorInline<VkColorSpaceKHR, 16> colorSpaces;
+	MVKSmallVector<VkColorSpaceKHR, 16> colorSpaces;
 	colorSpaces.push_back(VK_COLOR_SPACE_SRGB_NONLINEAR_KHR);
 	if (getInstance()->_enabledExtensions.vk_EXT_swapchain_colorspace.enabled) {
 #if MVK_MACOS
@@ -632,7 +721,7 @@ VkResult MVKPhysicalDevice::getPresentRectangles(MVKSurface* surface,
 // In addition, Metal queues are always general purpose, so the default behaviour is for all
 // queue families to support graphics + compute + transfer, unless the app indicates it
 // requires queue family specialization.
-MVKVector<MVKQueueFamily*>& MVKPhysicalDevice::getQueueFamilies() {
+MVKArrayRef<MVKQueueFamily*> MVKPhysicalDevice::getQueueFamilies() {
 	if (_queueFamilies.empty()) {
 		VkQueueFamilyProperties qfProps;
 		bool specialize = _mvkInstance->getMoltenVKConfiguration()->specializedQueueFamilies;
@@ -660,14 +749,13 @@ MVKVector<MVKQueueFamily*>& MVKPhysicalDevice::getQueueFamilies() {
 
 		MVKAssert(kMVKQueueFamilyCount >= _queueFamilies.size(), "Adjust value of kMVKQueueFamilyCount.");
 	}
-	return _queueFamilies;
+	return _queueFamilies.contents();
 }
 
 VkResult MVKPhysicalDevice::getQueueFamilyProperties(uint32_t* pCount,
 													 VkQueueFamilyProperties* pQueueFamilyProperties) {
-
-	auto& qFams = getQueueFamilies();
-	uint32_t qfCnt = uint32_t(qFams.size());
+	auto qFams = getQueueFamilies();
+	uint32_t qfCnt = uint32_t(qFams.size);
 
 	// If properties aren't actually being requested yet, simply update the returned count
 	if ( !pQueueFamilyProperties ) {
@@ -691,7 +779,6 @@ VkResult MVKPhysicalDevice::getQueueFamilyProperties(uint32_t* pCount,
 
 VkResult MVKPhysicalDevice::getQueueFamilyProperties(uint32_t* pCount,
 													 VkQueueFamilyProperties2KHR* pQueueFamilyProperties) {
-
 	VkResult rslt;
 	if (pQueueFamilyProperties) {
 		// Populate temp array of VkQueueFamilyProperties then copy into array of VkQueueFamilyProperties2KHR.
@@ -714,17 +801,16 @@ VkResult MVKPhysicalDevice::getQueueFamilyProperties(uint32_t* pCount,
 #pragma mark Memory models
 
 /** Populates the specified memory properties with the memory characteristics of this device. */
-VkResult MVKPhysicalDevice::getPhysicalDeviceMemoryProperties(VkPhysicalDeviceMemoryProperties* pMemoryProperties) {
+VkResult MVKPhysicalDevice::getMemoryProperties(VkPhysicalDeviceMemoryProperties* pMemoryProperties) {
 	*pMemoryProperties = _memoryProperties;
 	return VK_SUCCESS;
 }
 
-VkResult MVKPhysicalDevice::getPhysicalDeviceMemoryProperties(VkPhysicalDeviceMemoryProperties2* pMemoryProperties) {
-	if (pMemoryProperties) {
-		pMemoryProperties->sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
-		pMemoryProperties->memoryProperties = _memoryProperties;
-		for (auto* next = (VkBaseOutStructure*)pMemoryProperties->pNext; next; next = next->pNext) {
-			switch (next->sType) {
+VkResult MVKPhysicalDevice::getMemoryProperties(VkPhysicalDeviceMemoryProperties2* pMemoryProperties) {
+	pMemoryProperties->sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_PROPERTIES_2;
+	pMemoryProperties->memoryProperties = _memoryProperties;
+	for (auto* next = (VkBaseOutStructure*)pMemoryProperties->pNext; next; next = next->pNext) {
+		switch (next->sType) {
 			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MEMORY_BUDGET_PROPERTIES_EXT: {
 				auto* budgetProps = (VkPhysicalDeviceMemoryBudgetPropertiesEXT*)next;
 				mvkClear(budgetProps->heapBudget, VK_MAX_MEMORY_HEAPS);
@@ -739,7 +825,6 @@ VkResult MVKPhysicalDevice::getPhysicalDeviceMemoryProperties(VkPhysicalDeviceMe
 			}
 			default:
 				break;
-			}
 		}
 	}
 	return VK_SUCCESS;
@@ -757,8 +842,9 @@ MVKPhysicalDevice::MVKPhysicalDevice(MVKInstance* mvkInstance, id<MTLDevice> mtl
 	initMetalFeatures();        		// Call first.
 	initFeatures();             		// Call second.
 	initProperties();           		// Call third.
-	initMemoryProperties();
 	initExtensions();
+	initMemoryProperties();
+	initExternalMemoryProperties();
 	logGPUInfo();
 }
 
@@ -782,6 +868,8 @@ void MVKPhysicalDevice::initMetalFeatures() {
     _metalFeatures.maxQueryBufferSize = (64 * KIBI);
 
 	_metalFeatures.pushConstantSizeAlignment = 16;     // Min float4 alignment for typical uniform structs.
+
+	_metalFeatures.maxTextureLayers = (2 * KIBI);
 
 	_metalFeatures.ioSurfaces = MVK_SUPPORT_IOSURFACE_BOOL;
 
@@ -1151,7 +1239,7 @@ void MVKPhysicalDevice::initProperties() {
 	_properties.limits.maxImageDimensionCube = _metalFeatures.maxTextureDimension;
 	_properties.limits.maxFramebufferWidth = _metalFeatures.maxTextureDimension;
 	_properties.limits.maxFramebufferHeight = _metalFeatures.maxTextureDimension;
-	_properties.limits.maxFramebufferLayers = _metalFeatures.layeredRendering ?  256 : 1;
+	_properties.limits.maxFramebufferLayers = _metalFeatures.layeredRendering ? _metalFeatures.maxTextureLayers : 1;
 
     _properties.limits.maxViewportDimensions[0] = _metalFeatures.maxTextureDimension;
     _properties.limits.maxViewportDimensions[1] = _metalFeatures.maxTextureDimension;
@@ -1160,15 +1248,15 @@ void MVKPhysicalDevice::initProperties() {
     _properties.limits.viewportBoundsRange[1] = (2.0 * maxVPDim) - 1;
     _properties.limits.maxViewports = _features.multiViewport ? kMVKCachedViewportScissorCount : 1;
 
-	_properties.limits.maxImageDimension3D = (2 * KIBI);
-	_properties.limits.maxImageArrayLayers = (2 * KIBI);
+	_properties.limits.maxImageDimension3D = _metalFeatures.maxTextureLayers;
+	_properties.limits.maxImageArrayLayers = _metalFeatures.maxTextureLayers;
 	_properties.limits.maxSamplerAnisotropy = 16;
 
     _properties.limits.maxVertexInputAttributes = 31;
     _properties.limits.maxVertexInputBindings = 31;
 
-    _properties.limits.maxVertexInputAttributeOffset = (4 * KIBI);
-    _properties.limits.maxVertexInputBindingStride = _properties.limits.maxVertexInputAttributeOffset - 1;
+    _properties.limits.maxVertexInputBindingStride = (2 * KIBI);
+	_properties.limits.maxVertexInputAttributeOffset = _properties.limits.maxVertexInputBindingStride - 1;
 
 	_properties.limits.maxPerStageDescriptorSamplers = _metalFeatures.maxPerStageSamplerCount;
 	_properties.limits.maxPerStageDescriptorUniformBuffers = _metalFeatures.maxPerStageBufferCount;
@@ -1214,6 +1302,7 @@ void MVKPhysicalDevice::initProperties() {
         uint32_t maxStorage = 0, maxUniform = 0;
         bool singleTexelStorage = true, singleTexelUniform = true;
         _pixelFormats.enumerateSupportedFormats({0, 0, VK_FORMAT_FEATURE_UNIFORM_TEXEL_BUFFER_BIT | VK_FORMAT_FEATURE_STORAGE_TEXEL_BUFFER_BIT}, true, [&](VkFormat vk) {
+            if ( _pixelFormats.getChromaSubsamplingComponentBits(vk) > 0 ) { return false; }    // Skip chroma subsampling formats
 			MTLPixelFormat mtlFmt = _pixelFormats.getMTLPixelFormat(vk);
 			if ( !mtlFmt ) { return false; }	// If format is invalid, avoid validation errors on MTLDevice format alignment calls
 
@@ -1223,7 +1312,7 @@ void MVKPhysicalDevice::initProperties() {
             } else {
                 alignment = [_mtlDevice minimumLinearTextureAlignmentForPixelFormat: mtlFmt];
             }
-            VkFormatProperties props = _pixelFormats.getVkFormatProperties(vk);
+            VkFormatProperties& props = _pixelFormats.getVkFormatProperties(vk);
             // For uncompressed formats, this is the size of a single texel.
             // Note that no implementations of Metal support compressed formats
             // in a linear texture (including texture buffers). It's likely that even
@@ -1373,6 +1462,7 @@ void MVKPhysicalDevice::initProperties() {
 		_properties.limits.maxComputeSharedMemorySize = (32 * KIBI);
 #endif
 	}
+	_properties.limits.maxSamplerLodBias = 0;	// Bias not supported in API, but can be applied in shader directly.
 
     _properties.limits.minTexelOffset = -8;
     _properties.limits.maxTexelOffset = 7;
@@ -1389,7 +1479,7 @@ void MVKPhysicalDevice::initProperties() {
     _properties.limits.maxComputeWorkGroupCount[1] = kMVKUndefinedLargeUInt32;
     _properties.limits.maxComputeWorkGroupCount[2] = kMVKUndefinedLargeUInt32;
 
-    _properties.limits.maxDrawIndexedIndexValue = numeric_limits<uint32_t>::max();
+    _properties.limits.maxDrawIndexedIndexValue = numeric_limits<uint32_t>::max();	// Must be (2^32 - 1) to support fullDrawIndexUint32
     _properties.limits.maxDrawIndirectCount = kMVKUndefinedLargeUInt32;
 
     _properties.limits.maxClipDistances = kMVKUndefinedLargeUInt32;
@@ -1404,8 +1494,6 @@ void MVKPhysicalDevice::initProperties() {
     _properties.limits.subTexelPrecisionBits = 4;
     _properties.limits.mipmapPrecisionBits = 4;
     _properties.limits.viewportSubPixelBits = 0;
-
-    _properties.limits.maxSamplerLodBias = 2;
 
     _properties.limits.discreteQueuePriorities = 2;
 
@@ -1462,8 +1550,7 @@ void MVKPhysicalDevice::initGPUInfoProperties() {
 	if (regID) {
 		entry = IOServiceGetMatchingService(kIOMasterPortDefault, IORegistryEntryIDMatching(regID));
 		if (entry) {
-			// That returned the IOGraphicsAccelerator nub. Its parent, then, is the actual
-			// PCI device.
+			// That returned the IOGraphicsAccelerator nub. Its parent, then, is the actual PCI device.
 			io_registry_entry_t parent;
 			if (IORegistryEntryGetParentEntry(entry, kIOServicePlane, &parent) == kIOReturnSuccess) {
 				isFound = true;
@@ -1657,7 +1744,7 @@ void MVKPhysicalDevice::initPipelineCacheUUID() {
 	*(uint32_t*)&_properties.pipelineCacheUUID[uuidComponentOffset] = NSSwapHostIntToBig(mvkVersion);
 	uuidComponentOffset += sizeof(mvkVersion);
 
-	// Next 4 bytes contains hightest Metal feature set supported by this device
+	// Next 4 bytes contains highest Metal feature set supported by this device
 	uint32_t mtlFeatSet = getHighestMTLFeatureSet();
 	*(uint32_t*)&_properties.pipelineCacheUUID[uuidComponentOffset] = NSSwapHostIntToBig(mtlFeatSet);
 	uuidComponentOffset += sizeof(mtlFeatSet);
@@ -1884,6 +1971,22 @@ uint64_t MVKPhysicalDevice::getCurrentAllocatedSize() {
 #endif
 }
 
+void MVKPhysicalDevice::initExternalMemoryProperties() {
+
+	// Buffers
+	_mtlBufferExternalMemoryProperties.externalMemoryFeatures = (VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT |
+																 VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT);
+	_mtlBufferExternalMemoryProperties.exportFromImportedHandleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_MTLBUFFER_BIT_KHR;
+	_mtlBufferExternalMemoryProperties.compatibleHandleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_MTLBUFFER_BIT_KHR;
+
+	// Images
+	_mtlTextureExternalMemoryProperties.externalMemoryFeatures = (VK_EXTERNAL_MEMORY_FEATURE_EXPORTABLE_BIT |
+																  VK_EXTERNAL_MEMORY_FEATURE_IMPORTABLE_BIT |
+																  VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT);
+	_mtlTextureExternalMemoryProperties.exportFromImportedHandleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_MTLTEXTURE_BIT_KHR;
+	_mtlTextureExternalMemoryProperties.compatibleHandleTypes = VK_EXTERNAL_MEMORY_HANDLE_TYPE_MTLTEXTURE_BIT_KHR;
+}
+
 void MVKPhysicalDevice::initExtensions() {
 	MVKExtensionList* pWritableExtns = (MVKExtensionList*)&_supportedExtensions;
 	pWritableExtns->disableAllButEnabledDeviceExtensions();
@@ -2101,8 +2204,10 @@ MVKBuffer* MVKDevice::createBuffer(const VkBufferCreateInfo* pCreateInfo,
 
 void MVKDevice::destroyBuffer(MVKBuffer* mvkBuff,
 							  const VkAllocationCallbacks* pAllocator) {
-	removeResource(mvkBuff);
-	mvkBuff->destroy();
+	if (mvkBuff) {
+		removeResource(mvkBuff);
+		mvkBuff->destroy();
+	}
 }
 
 MVKBufferView* MVKDevice::createBufferView(const VkBufferViewCreateInfo* pCreateInfo,
@@ -2112,7 +2217,7 @@ MVKBufferView* MVKDevice::createBufferView(const VkBufferViewCreateInfo* pCreate
 
 void MVKDevice::destroyBufferView(MVKBufferView* mvkBuffView,
                                   const VkAllocationCallbacks* pAllocator) {
-    mvkBuffView->destroy();
+	if (mvkBuffView) { mvkBuffView->destroy(); }
 }
 
 MVKImage* MVKDevice::createImage(const VkImageCreateInfo* pCreateInfo,
@@ -2128,16 +2233,23 @@ MVKImage* MVKDevice::createImage(const VkImageCreateInfo* pCreateInfo,
 			break;
 		}
 	}
-	if (swapchainInfo) {
-		return (MVKImage*)addResource(new MVKPeerSwapchainImage(this, pCreateInfo, (MVKSwapchain*)swapchainInfo->swapchain, uint32_t(-1)));
-	}
-	return (MVKImage*)addResource(new MVKImage(this, pCreateInfo));
+    MVKImage* mvkImg = (swapchainInfo)
+        ? new MVKPeerSwapchainImage(this, pCreateInfo, (MVKSwapchain*)swapchainInfo->swapchain, uint32_t(-1))
+        : new MVKImage(this, pCreateInfo);
+    for (auto& memoryBinding : mvkImg->_memoryBindings) {
+        addResource(memoryBinding.get());
+    }
+	return mvkImg;
 }
 
 void MVKDevice::destroyImage(MVKImage* mvkImg,
 							 const VkAllocationCallbacks* pAllocator) {
-	removeResource(mvkImg);
-	mvkImg->destroy();
+	if (mvkImg) {
+		for (auto& memoryBinding : mvkImg->_memoryBindings) {
+            removeResource(memoryBinding.get());
+        }
+		mvkImg->destroy();
+	}
 }
 
 MVKImageView* MVKDevice::createImageView(const VkImageViewCreateInfo* pCreateInfo,
@@ -2147,7 +2259,7 @@ MVKImageView* MVKDevice::createImageView(const VkImageViewCreateInfo* pCreateInf
 
 void MVKDevice::destroyImageView(MVKImageView* mvkImgView,
 								 const VkAllocationCallbacks* pAllocator) {
-	mvkImgView->destroy();
+	if (mvkImgView) { mvkImgView->destroy(); }
 }
 
 MVKSwapchain* MVKDevice::createSwapchain(const VkSwapchainCreateInfoKHR* pCreateInfo,
@@ -2157,20 +2269,28 @@ MVKSwapchain* MVKDevice::createSwapchain(const VkSwapchainCreateInfoKHR* pCreate
 
 void MVKDevice::destroySwapchain(MVKSwapchain* mvkSwpChn,
 								 const VkAllocationCallbacks* pAllocator) {
-	mvkSwpChn->destroy();
+	if (mvkSwpChn) { mvkSwpChn->destroy(); }
 }
 
 MVKPresentableSwapchainImage* MVKDevice::createPresentableSwapchainImage(const VkImageCreateInfo* pCreateInfo,
 																		 MVKSwapchain* swapchain,
 																		 uint32_t swapchainIndex,
 																		 const VkAllocationCallbacks* pAllocator) {
-	return (MVKPresentableSwapchainImage*)addResource(new MVKPresentableSwapchainImage(this, pCreateInfo, swapchain, swapchainIndex));
+    MVKPresentableSwapchainImage* mvkImg = new MVKPresentableSwapchainImage(this, pCreateInfo, swapchain, swapchainIndex);
+    for (auto& memoryBinding : mvkImg->_memoryBindings) {
+        addResource(memoryBinding.get());
+    }
+    return mvkImg;
 }
 
 void MVKDevice::destroyPresentableSwapchainImage(MVKPresentableSwapchainImage* mvkImg,
 												 const VkAllocationCallbacks* pAllocator) {
-	removeResource(mvkImg);
-	mvkImg->destroy();
+	if (mvkImg) {
+		for (auto& memoryBinding : mvkImg->_memoryBindings) {
+            removeResource(memoryBinding.get());
+        }
+		mvkImg->destroy();
+	}
 }
 
 MVKFence* MVKDevice::createFence(const VkFenceCreateInfo* pCreateInfo,
@@ -2180,7 +2300,7 @@ MVKFence* MVKDevice::createFence(const VkFenceCreateInfo* pCreateInfo,
 
 void MVKDevice::destroyFence(MVKFence* mvkFence,
 							 const VkAllocationCallbacks* pAllocator) {
-	mvkFence->destroy();
+	if (mvkFence) { mvkFence->destroy(); }
 }
 
 MVKSemaphore* MVKDevice::createSemaphore(const VkSemaphoreCreateInfo* pCreateInfo,
@@ -2196,7 +2316,7 @@ MVKSemaphore* MVKDevice::createSemaphore(const VkSemaphoreCreateInfo* pCreateInf
 
 void MVKDevice::destroySemaphore(MVKSemaphore* mvkSem4,
 								 const VkAllocationCallbacks* pAllocator) {
-	mvkSem4->destroy();
+	if (mvkSem4) { mvkSem4->destroy(); }
 }
 
 MVKEvent* MVKDevice::createEvent(const VkEventCreateInfo* pCreateInfo,
@@ -2209,7 +2329,7 @@ MVKEvent* MVKDevice::createEvent(const VkEventCreateInfo* pCreateInfo,
 }
 
 void MVKDevice::destroyEvent(MVKEvent* mvkEvent, const VkAllocationCallbacks* pAllocator) {
-	mvkEvent->destroy();
+	if (mvkEvent) { mvkEvent->destroy(); }
 }
 
 MVKQueryPool* MVKDevice::createQueryPool(const VkQueryPoolCreateInfo* pCreateInfo,
@@ -2228,7 +2348,7 @@ MVKQueryPool* MVKDevice::createQueryPool(const VkQueryPoolCreateInfo* pCreateInf
 
 void MVKDevice::destroyQueryPool(MVKQueryPool* mvkQP,
 								 const VkAllocationCallbacks* pAllocator) {
-	mvkQP->destroy();
+	if (mvkQP) { mvkQP->destroy(); }
 }
 
 MVKShaderModule* MVKDevice::createShaderModule(const VkShaderModuleCreateInfo* pCreateInfo,
@@ -2238,7 +2358,7 @@ MVKShaderModule* MVKDevice::createShaderModule(const VkShaderModuleCreateInfo* p
 
 void MVKDevice::destroyShaderModule(MVKShaderModule* mvkShdrMod,
 									const VkAllocationCallbacks* pAllocator) {
-	mvkShdrMod->destroy();
+	if (mvkShdrMod) { mvkShdrMod->destroy(); }
 }
 
 MVKPipelineCache* MVKDevice::createPipelineCache(const VkPipelineCacheCreateInfo* pCreateInfo,
@@ -2248,7 +2368,7 @@ MVKPipelineCache* MVKDevice::createPipelineCache(const VkPipelineCacheCreateInfo
 
 void MVKDevice::destroyPipelineCache(MVKPipelineCache* mvkPLC,
 									 const VkAllocationCallbacks* pAllocator) {
-	mvkPLC->destroy();
+	if (mvkPLC) { mvkPLC->destroy(); }
 }
 
 MVKPipelineLayout* MVKDevice::createPipelineLayout(const VkPipelineLayoutCreateInfo* pCreateInfo,
@@ -2258,7 +2378,7 @@ MVKPipelineLayout* MVKDevice::createPipelineLayout(const VkPipelineLayoutCreateI
 
 void MVKDevice::destroyPipelineLayout(MVKPipelineLayout* mvkPLL,
 									  const VkAllocationCallbacks* pAllocator) {
-	mvkPLL->destroy();
+	if (mvkPLL) { mvkPLL->destroy(); }
 }
 
 template<typename PipelineType, typename PipelineInfoType>
@@ -2319,7 +2439,7 @@ template VkResult MVKDevice::createPipelines<MVKComputePipeline, VkComputePipeli
 
 void MVKDevice::destroyPipeline(MVKPipeline* mvkPL,
                                 const VkAllocationCallbacks* pAllocator) {
-    mvkPL->destroy();
+	if (mvkPL) { mvkPL->destroy(); }
 }
 
 MVKSampler* MVKDevice::createSampler(const VkSamplerCreateInfo* pCreateInfo,
@@ -2329,7 +2449,17 @@ MVKSampler* MVKDevice::createSampler(const VkSamplerCreateInfo* pCreateInfo,
 
 void MVKDevice::destroySampler(MVKSampler* mvkSamp,
 							   const VkAllocationCallbacks* pAllocator) {
-	mvkSamp->destroy();
+	if (mvkSamp) { mvkSamp->destroy(); }
+}
+
+MVKSamplerYcbcrConversion* MVKDevice::createSamplerYcbcrConversion(const VkSamplerYcbcrConversionCreateInfo* pCreateInfo,
+																   const VkAllocationCallbacks* pAllocator) {
+	return new MVKSamplerYcbcrConversion(this, pCreateInfo);
+}
+
+void MVKDevice::destroySamplerYcbcrConversion(MVKSamplerYcbcrConversion* mvkSampConv,
+											  const VkAllocationCallbacks* pAllocator) {
+	mvkSampConv->destroy();
 }
 
 MVKDescriptorSetLayout* MVKDevice::createDescriptorSetLayout(const VkDescriptorSetLayoutCreateInfo* pCreateInfo,
@@ -2339,7 +2469,7 @@ MVKDescriptorSetLayout* MVKDevice::createDescriptorSetLayout(const VkDescriptorS
 
 void MVKDevice::destroyDescriptorSetLayout(MVKDescriptorSetLayout* mvkDSL,
 										   const VkAllocationCallbacks* pAllocator) {
-	mvkDSL->destroy();
+	if (mvkDSL) { mvkDSL->destroy(); }
 }
 
 MVKDescriptorPool* MVKDevice::createDescriptorPool(const VkDescriptorPoolCreateInfo* pCreateInfo,
@@ -2349,7 +2479,7 @@ MVKDescriptorPool* MVKDevice::createDescriptorPool(const VkDescriptorPoolCreateI
 
 void MVKDevice::destroyDescriptorPool(MVKDescriptorPool* mvkDP,
 									  const VkAllocationCallbacks* pAllocator) {
-	mvkDP->destroy();
+	if (mvkDP) { mvkDP->destroy(); }
 }
 
 MVKDescriptorUpdateTemplate* MVKDevice::createDescriptorUpdateTemplate(
@@ -2360,7 +2490,7 @@ MVKDescriptorUpdateTemplate* MVKDevice::createDescriptorUpdateTemplate(
 
 void MVKDevice::destroyDescriptorUpdateTemplate(MVKDescriptorUpdateTemplate* mvkDUT,
 												const VkAllocationCallbacks* pAllocator) {
-	mvkDUT->destroy();
+	if (mvkDUT) { mvkDUT->destroy(); }
 }
 
 MVKFramebuffer* MVKDevice::createFramebuffer(const VkFramebufferCreateInfo* pCreateInfo,
@@ -2370,7 +2500,7 @@ MVKFramebuffer* MVKDevice::createFramebuffer(const VkFramebufferCreateInfo* pCre
 
 void MVKDevice::destroyFramebuffer(MVKFramebuffer* mvkFB,
 								   const VkAllocationCallbacks* pAllocator) {
-	mvkFB->destroy();
+	if (mvkFB) { mvkFB->destroy(); }
 }
 
 MVKRenderPass* MVKDevice::createRenderPass(const VkRenderPassCreateInfo* pCreateInfo,
@@ -2380,7 +2510,7 @@ MVKRenderPass* MVKDevice::createRenderPass(const VkRenderPassCreateInfo* pCreate
 
 void MVKDevice::destroyRenderPass(MVKRenderPass* mvkRP,
 								  const VkAllocationCallbacks* pAllocator) {
-	mvkRP->destroy();
+	if (mvkRP) { mvkRP->destroy(); }
 }
 
 MVKCommandPool* MVKDevice::createCommandPool(const VkCommandPoolCreateInfo* pCreateInfo,
@@ -2390,7 +2520,7 @@ MVKCommandPool* MVKDevice::createCommandPool(const VkCommandPoolCreateInfo* pCre
 
 void MVKDevice::destroyCommandPool(MVKCommandPool* mvkCmdPool,
 								   const VkAllocationCallbacks* pAllocator) {
-	mvkCmdPool->destroy();
+	if (mvkCmdPool) { mvkCmdPool->destroy(); }
 }
 
 MVKDeviceMemory* MVKDevice::allocateMemory(const VkMemoryAllocateInfo* pAllocateInfo,
@@ -2400,7 +2530,7 @@ MVKDeviceMemory* MVKDevice::allocateMemory(const VkMemoryAllocateInfo* pAllocate
 
 void MVKDevice::freeMemory(MVKDeviceMemory* mvkDevMem,
 						   const VkAllocationCallbacks* pAllocator) {
-	mvkDevMem->destroy();
+	if (mvkDevMem) { mvkDevMem->destroy(); }
 }
 
 
@@ -2422,14 +2552,14 @@ MVKResource* MVKDevice::removeResource(MVKResource* rez) {
 
 void MVKDevice::applyMemoryBarrier(VkPipelineStageFlags srcStageMask,
 								   VkPipelineStageFlags dstStageMask,
-								   VkMemoryBarrier* pMemoryBarrier,
-                                   MVKCommandEncoder* cmdEncoder,
-                                   MVKCommandUse cmdUse) {
+								   MVKPipelineBarrier& barrier,
+								   MVKCommandEncoder* cmdEncoder,
+								   MVKCommandUse cmdUse) {
 	if (!mvkIsAnyFlagEnabled(dstStageMask, VK_PIPELINE_STAGE_HOST_BIT) ||
-		!mvkIsAnyFlagEnabled(pMemoryBarrier->dstAccessMask, VK_ACCESS_HOST_READ_BIT) ) { return; }
+		!mvkIsAnyFlagEnabled(barrier.dstAccessMask, VK_ACCESS_HOST_READ_BIT) ) { return; }
 	lock_guard<mutex> lock(_rezLock);
-    for (auto& rez : _resources) {
-		rez->applyMemoryBarrier(srcStageMask, dstStageMask, pMemoryBarrier, cmdEncoder, cmdUse);
+	for (auto& rez : _resources) {
+		rez->applyMemoryBarrier(srcStageMask, dstStageMask, barrier, cmdEncoder, cmdUse);
 	}
 }
 
@@ -2583,6 +2713,7 @@ MVKDevice::MVKDevice(MVKPhysicalDevice* physicalDevice, const VkDeviceCreateInfo
 	_enabledVarPtrFeatures(),
 	_enabledInterlockFeatures(),
 	_enabledHostQryResetFeatures(),
+	_enabledSamplerYcbcrConversionFeatures(),
 	_enabledScalarLayoutFeatures(),
 	_enabledTexelBuffAlignFeatures(),
 	_enabledVtxAttrDivFeatures(),
@@ -2744,6 +2875,7 @@ void MVKDevice::enableFeatures(const VkDeviceCreateInfo* pCreateInfo) {
 	mvkClear(&_enabledVarPtrFeatures);
 	mvkClear(&_enabledInterlockFeatures);
 	mvkClear(&_enabledHostQryResetFeatures);
+	mvkClear(&_enabledSamplerYcbcrConversionFeatures);
 	mvkClear(&_enabledScalarLayoutFeatures);
 	mvkClear(&_enabledTexelBuffAlignFeatures);
 	mvkClear(&_enabledVtxAttrDivFeatures);
@@ -2766,9 +2898,13 @@ void MVKDevice::enableFeatures(const VkDeviceCreateInfo* pCreateInfo) {
 	pdScalarLayoutFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT;
 	pdScalarLayoutFeatures.pNext = &pdTexelBuffAlignFeatures;
 
+	VkPhysicalDeviceSamplerYcbcrConversionFeatures pdSamplerYcbcrConversionFeatures;
+	pdSamplerYcbcrConversionFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES;
+	pdSamplerYcbcrConversionFeatures.pNext = &pdScalarLayoutFeatures;
+
 	VkPhysicalDeviceHostQueryResetFeaturesEXT pdHostQryResetFeatures;
 	pdHostQryResetFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_HOST_QUERY_RESET_FEATURES_EXT;
-	pdHostQryResetFeatures.pNext = &pdScalarLayoutFeatures;
+	pdHostQryResetFeatures.pNext = &pdSamplerYcbcrConversionFeatures;
 
 	VkPhysicalDeviceFragmentShaderInterlockFeaturesEXT pdInterlockFeatures;
 	pdInterlockFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_SHADER_INTERLOCK_FEATURES_EXT;
@@ -2807,8 +2943,7 @@ void MVKDevice::enableFeatures(const VkDeviceCreateInfo* pCreateInfo) {
 					   &pdFeats2.features.robustBufferAccess, 55);
 	}
 
-	auto* next = (MVKVkAPIStructHeader*)pCreateInfo->pNext;
-	while (next) {
+	for (const auto* next = (VkBaseInStructure*)pCreateInfo->pNext; next; next = next->pNext) {
 		switch ((uint32_t)next->sType) {
 			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2: {
 				auto* requestedFeatures = (VkPhysicalDeviceFeatures2*)next;
@@ -2866,6 +3001,13 @@ void MVKDevice::enableFeatures(const VkDeviceCreateInfo* pCreateInfo) {
 							   &pdHostQryResetFeatures.hostQueryReset, 1);
 				break;
 			}
+			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLER_YCBCR_CONVERSION_FEATURES: {
+				auto* requestedFeatures = (VkPhysicalDeviceSamplerYcbcrConversionFeatures*)next;
+				enableFeatures(&_enabledSamplerYcbcrConversionFeatures.samplerYcbcrConversion,
+							   &requestedFeatures->samplerYcbcrConversion,
+							   &pdSamplerYcbcrConversionFeatures.samplerYcbcrConversion, 1);
+				break;
+			}
 			case VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES_EXT: {
 				auto* requestedFeatures = (VkPhysicalDeviceScalarBlockLayoutFeaturesEXT*)next;
 				enableFeatures(&_enabledScalarLayoutFeatures.scalarBlockLayout,
@@ -2897,7 +3039,6 @@ void MVKDevice::enableFeatures(const VkDeviceCreateInfo* pCreateInfo) {
 			default:
 				break;
 		}
-		next = (MVKVkAPIStructHeader*)next->pNext;
 	}
 }
 
@@ -2919,7 +3060,7 @@ void MVKDevice::enableExtensions(const VkDeviceCreateInfo* pCreateInfo) {
 
 // Create the command queues
 void MVKDevice::initQueues(const VkDeviceCreateInfo* pCreateInfo) {
-	auto& qFams = _physicalDevice->getQueueFamilies();
+	auto qFams = _physicalDevice->getQueueFamilies();
 	uint32_t qrCnt = pCreateInfo->queueCreateInfoCount;
 	for (uint32_t qrIdx = 0; qrIdx < qrCnt; qrIdx++) {
 		const VkDeviceQueueCreateInfo* pQFInfo = &pCreateInfo->pQueueCreateInfos[qrIdx];

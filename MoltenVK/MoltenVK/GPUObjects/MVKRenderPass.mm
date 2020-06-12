@@ -69,7 +69,7 @@ VkSampleCountFlagBits MVKRenderSubpass::getSampleCount() {
 
 void MVKRenderSubpass::populateMTLRenderPassDescriptor(MTLRenderPassDescriptor* mtlRPDesc,
 													   MVKFramebuffer* framebuffer,
-													   MVKVector<VkClearValue>& clearValues,
+													   const MVKArrayRef<VkClearValue>& clearValues,
 													   bool isRenderingEntireAttachment,
 													   bool loadOverride,
 													   bool storeOverride) {
@@ -110,7 +110,7 @@ void MVKRenderSubpass::populateMTLRenderPassDescriptor(MTLRenderPassDescriptor* 
 	if (dsRPAttIdx != VK_ATTACHMENT_UNUSED) {
 		MVKRenderPassAttachment* dsMVKRPAtt = &_renderPass->_attachments[dsRPAttIdx];
 		MVKImageView* dsImage = framebuffer->getAttachment(dsRPAttIdx);
-		MTLPixelFormat mtlDSFormat = dsImage->getMTLPixelFormat();
+		MTLPixelFormat mtlDSFormat = dsImage->getMTLPixelFormat(0);
 
 		if (pixFmts->isDepthFormat(mtlDSFormat)) {
 			MTLRenderPassDepthAttachmentDescriptor* mtlDepthAttDesc = mtlRPDesc.depthAttachment;
@@ -167,8 +167,8 @@ void MVKRenderSubpass::populateMTLRenderPassDescriptor(MTLRenderPassDescriptor* 
 	}
 }
 
-void MVKRenderSubpass::populateClearAttachments(MVKVector<VkClearAttachment>& clearAtts,
-												MVKVector<VkClearValue>& clearValues) {
+void MVKRenderSubpass::populateClearAttachments(MVKClearAttachments& clearAtts,
+												const MVKArrayRef<VkClearValue>& clearValues) {
 	VkClearAttachment cAtt;
 
 	uint32_t attIdx;
@@ -342,7 +342,8 @@ MVKRenderPassAttachment::MVKRenderPassAttachment(MVKRenderPass* renderPass,
 			_lastUseSubpassIdx = max(spIdx, _lastUseSubpassIdx);
 
 			// Validate that the attachment pixel format supports the capabilities required by the subpass.
-			if ( !mvkAreAllFlagsEnabled(pixFmts->getCapabilities(_info.format), reqCaps) ) {
+			// Use MTLPixelFormat to look up capabilities to permit Metal format substitution.
+			if ( !mvkAreAllFlagsEnabled(pixFmts->getCapabilities(pixFmts->getMTLPixelFormat(_info.format)), reqCaps) ) {
 				_renderPass->setConfigurationResult(reportError(VK_ERROR_FORMAT_NOT_SUPPORTED, "vkCreateRenderPass(): Attachment format %s on this device does not support the VkFormat attachment capabilities required by the subpass at index %d.", _renderPass->getPixelFormats()->getName(_info.format), spIdx));
 			}
 		}

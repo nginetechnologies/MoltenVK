@@ -19,13 +19,16 @@
 #pragma once
 
 #include "MVKDevice.h"
-#include "MVKVector.h"
+#include "MVKSmallVector.h"
 #include <mutex>
 
 #import <Metal/Metal.h>
 
-class MVKBuffer;
-class MVKImage;
+class MVKImageMemoryBinding;
+
+// TODO: These are inoperable placeholders until VK_KHR_external_memory_metal defines them properly
+static const VkExternalMemoryHandleTypeFlagBits VK_EXTERNAL_MEMORY_HANDLE_TYPE_MTLBUFFER_BIT_KHR = VK_EXTERNAL_MEMORY_HANDLE_TYPE_FLAG_BITS_MAX_ENUM;
+static const VkExternalMemoryHandleTypeFlagBits VK_EXTERNAL_MEMORY_HANDLE_TYPE_MTLTEXTURE_BIT_KHR = VK_EXTERNAL_MEMORY_HANDLE_TYPE_FLAG_BITS_MAX_ENUM;
 
 
 #pragma mark MVKDeviceMemory
@@ -87,7 +90,7 @@ public:
 	 * to coherent memory can be forced by setting evenIfCoherent to true.
 	 *
 	 * If pBlitEnc is not null, it points to a holder for a MTLBlitCommandEncoder and its
-	 * assocated MTLCommandBuffer. If this instance has a MTLBuffer using managed memory,
+	 * associated MTLCommandBuffer. If this instance has a MTLBuffer using managed memory,
 	 * this function may call synchronizeResource: on the MTLBlitCommandEncoder to
 	 * synchronize the GPU contents to the CPU. If the contents of the pBlitEnc do not
 	 * include a MTLBlitCommandEncoder and MTLCommandBuffer, this function will create
@@ -113,7 +116,7 @@ public:
 	/** Returns the Metal CPU cache mode used by this memory allocation. */
 	inline MTLCPUCacheMode getMTLCPUCacheMode() { return _mtlCPUCacheMode; }
 
-	/** Returns the Metal reource options used by this memory allocation. */
+	/** Returns the Metal resource options used by this memory allocation. */
 	inline MTLResourceOptions getMTLResourceOptions() { return mvkMTLResourceOptions(_mtlStorageMode, _mtlCPUCacheMode); }
 
 
@@ -127,23 +130,24 @@ public:
     ~MVKDeviceMemory() override;
 
 protected:
-	friend MVKBuffer;
-	friend MVKImage;
+	friend class MVKBuffer;
+    friend class MVKImageMemoryBinding;
 
-	void propogateDebugName() override;
+	void propagateDebugName() override;
 	VkDeviceSize adjustMemorySize(VkDeviceSize size, VkDeviceSize offset);
 	VkResult addBuffer(MVKBuffer* mvkBuff);
 	void removeBuffer(MVKBuffer* mvkBuff);
-	VkResult addImage(MVKImage* mvkImg);
-	void removeImage(MVKImage* mvkImg);
+	VkResult addImageMemoryBinding(MVKImageMemoryBinding* mvkImg);
+	void removeImageMemoryBinding(MVKImageMemoryBinding* mvkImg);
 	bool ensureMTLHeap();
 	bool ensureMTLBuffer();
 	bool ensureHostMemory();
 	void freeHostMemory();
 	MVKResource* getDedicatedResource();
+	void initExternalMemory(VkExternalMemoryHandleTypeFlags handleTypes);
 
-	MVKVectorInline<MVKBuffer*, 4> _buffers;
-	MVKVectorInline<MVKImage*, 4> _images;
+	MVKSmallVector<MVKBuffer*, 4> _buffers;
+	MVKSmallVector<MVKImageMemoryBinding*, 4> _imageMemoryBindings;
 	std::mutex _rezLock;
     VkDeviceSize _allocationSize = 0;
 	VkDeviceSize _mapOffset = 0;

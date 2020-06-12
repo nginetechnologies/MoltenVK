@@ -32,7 +32,7 @@ using namespace std;
 
 #pragma mark MVKDeviceMemory
 
-void MVKDeviceMemory::propogateDebugName() {
+void MVKDeviceMemory::propagateDebugName() {
 	setLabelIfNotNil(_mtlHeap, _debugName);
 	setLabelIfNotNil(_mtlBuffer, _debugName);
 }
@@ -92,7 +92,7 @@ VkResult MVKDeviceMemory::flushToDevice(VkDeviceSize offset, VkDeviceSize size, 
 		// If we have an MTLHeap object, there's no need to sync memory manually between images and the buffer.
 		if (!_mtlHeap) {
 			lock_guard<mutex> lock(_rezLock);
-			for (auto& img : _images) { img->flushToDevice(offset, memSize); }
+			for (auto& img : _imageMemoryBindings) { img->flushToDevice(offset, memSize); }
 			for (auto& buf : _buffers) { buf->flushToDevice(offset, memSize); }
 		}
 	}
@@ -107,7 +107,7 @@ VkResult MVKDeviceMemory::pullFromDevice(VkDeviceSize offset,
     VkDeviceSize memSize = adjustMemorySize(size, offset);
 	if (memSize > 0 && isMemoryHostAccessible() && (evenIfCoherent || !isMemoryHostCoherent()) && !_mtlHeap) {
 		lock_guard<mutex> lock(_rezLock);
-        for (auto& img : _images) { img->pullFromDevice(offset, memSize); }
+        for (auto& img : _imageMemoryBindings) { img->pullFromDevice(offset, memSize); }
         for (auto& buf : _buffers) { buf->pullFromDevice(offset, memSize); }
 
 #if MVK_MACOS
@@ -152,23 +152,23 @@ void MVKDeviceMemory::removeBuffer(MVKBuffer* mvkBuff) {
 	mvkRemoveAllOccurances(_buffers, mvkBuff);
 }
 
-VkResult MVKDeviceMemory::addImage(MVKImage* mvkImg) {
+VkResult MVKDeviceMemory::addImageMemoryBinding(MVKImageMemoryBinding* mvkImg) {
 	lock_guard<mutex> lock(_rezLock);
 
 	// If a dedicated alloc, ensure this image is the one and only image
 	// I am dedicated to.
-	if (_isDedicated && (_images.empty() || _images[0] != mvkImg) ) {
+	if (_isDedicated && (_imageMemoryBindings.empty() || _imageMemoryBindings[0] != mvkImg) ) {
 		return reportError(VK_ERROR_OUT_OF_DEVICE_MEMORY, "Could not bind VkImage %p to a VkDeviceMemory dedicated to resource %p. A dedicated allocation may only be used with the resource it was dedicated to.", mvkImg, getDedicatedResource() );
 	}
 
-	if (!_isDedicated) { _images.push_back(mvkImg); }
+	if (!_isDedicated) { _imageMemoryBindings.push_back(mvkImg); }
 
 	return VK_SUCCESS;
 }
 
-void MVKDeviceMemory::removeImage(MVKImage* mvkImg) {
+void MVKDeviceMemory::removeImageMemoryBinding(MVKImageMemoryBinding* mvkImg) {
 	lock_guard<mutex> lock(_rezLock);
-	mvkRemoveAllOccurances(_images, mvkImg);
+	mvkRemoveAllOccurances(_imageMemoryBindings, mvkImg);
 }
 
 // Ensures that this instance is backed by a MTLHeap object,
@@ -205,7 +205,7 @@ bool MVKDeviceMemory::ensureMTLHeap() {
 	[heapDesc release];
 	if (!_mtlHeap) { return false; }
 
-	propogateDebugName();
+	propagateDebugName();
 
 	return true;
 }
@@ -237,7 +237,7 @@ bool MVKDeviceMemory::ensureMTLBuffer() {
 	if (!_mtlBuffer) { return false; }
 	_pMemory = isMemoryHostAccessible() ? _mtlBuffer.contents : nullptr;
 
-	propogateDebugName();
+	propagateDebugName();
 
 	return true;
 }
@@ -266,10 +266,7 @@ void MVKDeviceMemory::freeHostMemory() {
 
 MVKResource* MVKDeviceMemory::getDedicatedResource() {
 	MVKAssert(_isDedicated, "This method should only be called on dedicated allocations!");
-	if (_buffers.empty())
-		return _images[0];
-	else
-		return _buffers[0];
+	return _buffers.empty() ? (MVKResource*)_imageMemoryBindings[0] : (MVKResource*)_buffers[0];
 }
 
 MVKDeviceMemory::MVKDeviceMemory(MVKDevice* device,
@@ -284,21 +281,27 @@ MVKDeviceMemory::MVKDeviceMemory(MVKDevice* device,
 
 	VkImage dedicatedImage = VK_NULL_HANDLE;
 	VkBuffer dedicatedBuffer = VK_NULL_HANDLE;
-	auto* next = (VkStructureType*)pAllocateInfo->pNext;
-	while (next) {
-		switch (*next) {
-		case VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO: {
-			auto* pDedicatedInfo = (VkMemoryDedicatedAllocateInfo*)next;
-			dedicatedImage = pDedicatedInfo->image;
-			dedicatedBuffer = pDedicatedInfo->buffer;
-			next = (VkStructureType*)pDedicatedInfo->pNext;
-			break;
-		}
-		default:
-			next = (VkStructureType*)((VkMemoryAllocateInfo*)next)->pNext;
-			break;
+	VkExternalMemoryHandleTypeFlags handleTypes = 0;
+	for (const auto* next = (const VkBaseInStructure*)pAllocateInfo->pNext; next; next = next->pNext) {
+		switch (next->sType) {
+			case VK_STRUCTURE_TYPE_MEMORY_DEDICATED_ALLOCATE_INFO: {
+				auto* pDedicatedInfo = (VkMemoryDedicatedAllocateInfo*)next;
+				dedicatedImage = pDedicatedInfo->image;
+				dedicatedBuffer = pDedicatedInfo->buffer;
+				_isDedicated = dedicatedImage || dedicatedBuffer;
+				break;
+			}
+			case VK_STRUCTURE_TYPE_EXPORT_MEMORY_ALLOCATE_INFO: {
+				auto* pExpMemInfo = (VkExportMemoryAllocateInfo*)next;
+				handleTypes = pExpMemInfo->handleTypes;
+				break;
+			}
+			default:
+				break;
 		}
 	}
+
+	initExternalMemory(handleTypes);	// After setting _isDedicated
 
 	// "Dedicated" means this memory can only be used for this image or buffer.
 	if (dedicatedImage) {
@@ -316,14 +319,18 @@ MVKDeviceMemory::MVKDeviceMemory(MVKDevice* device,
 			}
 		}
 #endif
-		_isDedicated = true;
-		_images.push_back((MVKImage*)dedicatedImage);
+        for (auto& memoryBinding : ((MVKImage*)dedicatedImage)->_memoryBindings) {
+            _imageMemoryBindings.push_back(memoryBinding.get());
+        }
 		return;
 	}
 
-	// If we can, create a MTLHeap. This should happen before creating the buffer
-	// allowing us to map its contents.
-	if (!dedicatedImage && !dedicatedBuffer) {
+	if (dedicatedBuffer) {
+		_buffers.push_back((MVKBuffer*)dedicatedBuffer);
+	}
+
+	// If we can, create a MTLHeap. This should happen before creating the buffer, allowing us to map its contents.
+	if ( !_isDedicated ) {
 		if (!ensureMTLHeap()) {
 			setConfigurationResult(reportError(VK_ERROR_OUT_OF_DEVICE_MEMORY, "Could not allocate VkDeviceMemory of size %llu bytes.", _allocationSize));
 			return;
@@ -334,10 +341,26 @@ MVKDeviceMemory::MVKDeviceMemory(MVKDevice* device,
 	if (isMemoryHostCoherent() && !ensureMTLBuffer() ) {
 		setConfigurationResult(reportError(VK_ERROR_OUT_OF_DEVICE_MEMORY, "Could not allocate a host-coherent VkDeviceMemory of size %llu bytes. The maximum memory-aligned size of a host-coherent VkDeviceMemory is %llu bytes.", _allocationSize, _device->_pMetalFeatures->maxMTLBufferSize));
 	}
+}
 
-	if (dedicatedBuffer) {
-		_isDedicated = true;
-		_buffers.push_back((MVKBuffer*)dedicatedBuffer);
+void MVKDeviceMemory::initExternalMemory(VkExternalMemoryHandleTypeFlags handleTypes) {
+	if ( !handleTypes ) { return; }
+	
+	if ( !mvkIsOnlyAnyFlagEnabled(handleTypes, VK_EXTERNAL_MEMORY_HANDLE_TYPE_MTLBUFFER_BIT_KHR | VK_EXTERNAL_MEMORY_HANDLE_TYPE_MTLTEXTURE_BIT_KHR) ) {
+		setConfigurationResult(reportError(VK_ERROR_INITIALIZATION_FAILED, "vkAllocateMemory(): Only external memory handle types VK_EXTERNAL_MEMORY_HANDLE_TYPE_MTLBUFFER_BIT_KHR or VK_EXTERNAL_MEMORY_HANDLE_TYPE_MTLTEXTURE_BIT_KHR are supported."));
+	}
+
+	bool requiresDedicated = false;
+	if (mvkIsAnyFlagEnabled(handleTypes, VK_EXTERNAL_MEMORY_HANDLE_TYPE_MTLBUFFER_BIT_KHR)) {
+		auto& xmProps = _device->getPhysicalDevice()->getExternalBufferProperties(VK_EXTERNAL_MEMORY_HANDLE_TYPE_MTLBUFFER_BIT_KHR);
+		requiresDedicated = requiresDedicated || mvkIsAnyFlagEnabled(xmProps.externalMemoryFeatures, VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT);
+	}
+	if (mvkIsAnyFlagEnabled(handleTypes, VK_EXTERNAL_MEMORY_HANDLE_TYPE_MTLTEXTURE_BIT_KHR)) {
+		auto& xmProps = _device->getPhysicalDevice()->getExternalImageProperties(VK_EXTERNAL_MEMORY_HANDLE_TYPE_MTLTEXTURE_BIT_KHR);
+		requiresDedicated = requiresDedicated || mvkIsAnyFlagEnabled(xmProps.externalMemoryFeatures, VK_EXTERNAL_MEMORY_FEATURE_DEDICATED_ONLY_BIT);
+	}
+	if (requiresDedicated && !_isDedicated) {
+		setConfigurationResult(reportError(VK_ERROR_INITIALIZATION_FAILED, "vkAllocateMemory(): External memory requires a dedicated VkBuffer or VkImage."));
 	}
 }
 
@@ -346,7 +369,7 @@ MVKDeviceMemory::~MVKDeviceMemory() {
     // to allow the resource to callback to remove itself from the collection.
     auto buffCopies = _buffers;
     for (auto& buf : buffCopies) { buf->bindDeviceMemory(nullptr, 0); }
-	auto imgCopies = _images;
+	auto imgCopies = _imageMemoryBindings;
 	for (auto& img : imgCopies) { img->bindDeviceMemory(nullptr, 0); }
 
 	[_mtlBuffer release];

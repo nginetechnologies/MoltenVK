@@ -21,6 +21,7 @@
 #include "mvk_datatypes.h"
 #include "MVKEnvironment.h"
 #include "MVKBaseObject.h"
+#include <SPIRV-Cross/spirv_msl.hpp>
 #include <unordered_map>
 
 #import <Metal/Metal.h>
@@ -31,7 +32,8 @@ class MVKPhysicalDevice;
 // Validate these values periodically as new formats are added over time.
 static const uint32_t _vkFormatCount = 256;
 static const uint32_t _vkFormatCoreCount = VK_FORMAT_ASTC_12x12_SRGB_BLOCK + 1;
-static const uint32_t _mtlPixelFormatCount = MTLPixelFormatX32_Stencil8 + 2;     // The actual last enum value is not available on iOS
+static const uint32_t _mtlPixelFormatCount = 128;
+static const uint32_t _mtlPixelFormatCoreCount = MTLPixelFormatX32_Stencil8 + 2;     // The actual last enum value is not available on iOS
 static const uint32_t _mtlVertexFormatCount = MTLVertexFormatHalf + 1;
 
 
@@ -69,6 +71,8 @@ typedef enum : uint16_t {
 	kMVKMTLFmtCapsDRMR     = (kMVKMTLFmtCapsDRM | kMVKMTLFmtCapsResolve),
 	kMVKMTLFmtCapsDRFMR    = (kMVKMTLFmtCapsDRMR | kMVKMTLFmtCapsFilter),
 
+	kMVKMTLFmtCapsChromaSubsampling = kMVKMTLFmtCapsRF,
+	kMVKMTLFmtCapsMultiPlanar = kMVKMTLFmtCapsChromaSubsampling,
 } MVKMTLFmtCaps;
 
 
@@ -82,22 +86,22 @@ typedef struct {
 	MTLPixelFormat mtlPixelFormatSubstitute;
 	MTLVertexFormat mtlVertexFormat;
 	MTLVertexFormat mtlVertexFormatSubstitute;
+    uint8_t chromaSubsamplingPlaneCount;
+    uint8_t chromaSubsamplingComponentBits;
 	VkExtent2D blockTexelSize;
 	uint32_t bytesPerBlock;
 	MVKFormatType formatType;
 	VkFormatProperties properties;
 	const char* name;
 	bool hasReportedSubstitution;
+    
+    inline double bytesPerTexel() const { return (double)bytesPerBlock / (double)(blockTexelSize.width * blockTexelSize.height); };
 
-	inline double bytesPerTexel() const { return (double)bytesPerBlock / (double)(blockTexelSize.width * blockTexelSize.height); };
-
-	inline bool isSupported() const { return (mtlPixelFormat != MTLPixelFormatInvalid); };
+	inline bool isSupported() const { return (mtlPixelFormat != MTLPixelFormatInvalid || chromaSubsamplingPlaneCount > 0); };
 	inline bool isSupportedOrSubstitutable() const { return isSupported() || (mtlPixelFormatSubstitute != MTLPixelFormatInvalid); };
-	inline MTLPixelFormat getMTLPixelFormatOrSubstitute() const { return mtlPixelFormat ? mtlPixelFormat : mtlPixelFormatSubstitute; }
 
 	inline bool vertexIsSupported() const { return (mtlVertexFormat != MTLVertexFormatInvalid); };
 	inline bool vertexIsSupportedOrSubstitutable() const { return vertexIsSupported() || (mtlVertexFormatSubstitute != MTLVertexFormatInvalid); };
-	inline MTLVertexFormat getMTLVertexFormatOrSubstitute() const { return mtlVertexFormat ? mtlVertexFormat : mtlVertexFormatSubstitute; }
 } MVKVkFormatDesc;
 
 /** Describes the properties of a MTLPixelFormat or MTLVertexFormat. */
@@ -175,15 +179,27 @@ public:
 
 	/**
 	 * Returns the size of the compression block, measured in texels for a Vulkan format.
-	 * The returned value will be {1, 1} for non-compressed formats.
+	 * The returned value will be {1, 1} for non-compressed formats without chroma-subsampling.
 	 */
 	VkExtent2D getBlockTexelSize(VkFormat vkFormat);
 
 	/**
 	 * Returns the size of the compression block, measured in texels for a Metal format.
-	 * The returned value will be {1, 1} for non-compressed formats.
+	 * The returned value will be {1, 1} for non-compressed formats without chroma-subsampling.
 	 */
 	VkExtent2D getBlockTexelSize(MTLPixelFormat mtlFormat);
+
+	/** Returns the number of planes of the specified chroma-subsampling (YCbCr) VkFormat */
+	uint8_t getChromaSubsamplingPlaneCount(VkFormat vkFormat);
+
+	/** Returns the number of bits per channel of the specified chroma-subsampling (YCbCr) VkFormat */
+	uint8_t getChromaSubsamplingComponentBits(VkFormat vkFormat);
+
+	/** Returns the MSLFormatResolution of the specified chroma-subsampling (YCbCr) VkFormat */
+	SPIRV_CROSS_NAMESPACE::MSLFormatResolution getChromaSubsamplingResolution(VkFormat vkFormat);
+
+    /** Returns the number of planes, blockTexelSize,  bytesPerBlock and mtlPixFmt of each plane of the specified chroma-subsampling (YCbCr) VkFormat into the given arrays */
+    uint8_t getChromaSubsamplingPlanes(VkFormat vkFormat, VkExtent2D blockTexelSize[3], uint32_t bytesPerBlock[3], MTLPixelFormat mtlPixFmt[3]);
 
 	/**
 	 * Returns the size, in bytes, of a texel of the specified Vulkan format.
@@ -233,9 +249,9 @@ public:
 	size_t getBytesPerLayer(MTLPixelFormat mtlFormat, size_t bytesPerRow, uint32_t texelRowsPerLayer);
 
 	/** Returns the default properties for the specified Vulkan format. */
-	VkFormatProperties getVkFormatProperties(VkFormat vkFormat);
+	VkFormatProperties& getVkFormatProperties(VkFormat vkFormat);
 
-	/** Returns the Metal format capabilities supported by the specified Vulkan format. */
+	/** Returns the Metal format capabilities supported by the specified Vulkan format, without substitution. */
 	MVKMTLFmtCaps getCapabilities(VkFormat vkFormat);
 
 	/** Returns the Metal format capabilities supported by the specified Metal format. */
@@ -287,9 +303,7 @@ public:
 protected:
 	MVKVkFormatDesc& getVkFormatDesc(VkFormat vkFormat);
 	MVKVkFormatDesc& getVkFormatDesc(MTLPixelFormat mtlFormat);
-	MVKMTLFormatDesc& getMTLPixelFormatDesc(VkFormat vkFormat);
 	MVKMTLFormatDesc& getMTLPixelFormatDesc(MTLPixelFormat mtlFormat);
-	MVKMTLFormatDesc& getMTLVertexFormatDesc(VkFormat vkFormat);
 	MVKMTLFormatDesc& getMTLVertexFormatDesc(MTLVertexFormat mtlFormat);
 	void initVkFormatCapabilities();
 	void initMTLPixelFormatCapabilities();
@@ -323,7 +337,10 @@ protected:
 	uint16_t _vkFormatDescIndicesByVkFormatsCore[_vkFormatCoreCount];
 	std::unordered_map<uint32_t, uint32_t> _vkFormatDescIndicesByVkFormatsExt;
 
-	// Metal formats have small values and are mapped by simple lookup array.
-	uint16_t _mtlFormatDescIndicesByMTLPixelFormats[_mtlPixelFormatCount];
+	// Most Metal formats have small values and are mapped by simple lookup array.
+	// Outliers are mapped by a map.
+	uint16_t _mtlFormatDescIndicesByMTLPixelFormatsCore[_mtlPixelFormatCoreCount];
+	std::unordered_map<NSUInteger, uint32_t> _mtlFormatDescIndicesByMTLPixelFormatsExt;
+
 	uint16_t _mtlFormatDescIndicesByMTLVertexFormats[_mtlVertexFormatCount];
 };
