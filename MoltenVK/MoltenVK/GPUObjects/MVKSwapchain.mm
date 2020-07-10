@@ -311,14 +311,16 @@ void MVKSwapchain::initCAMetalLayer(const VkSwapchainCreateInfoKHR* pCreateInfo,
 			_mtlLayer.colorspace = CGColorSpaceCreateWithName(kCGColorSpaceExtendedLinearITUR_2020);
 			_mtlLayer.wantsExtendedDynamicRangeContentMVK = YES;
 			break;
-		case VK_COLOR_SPACE_HDR10_ST2084_EXT:
-			_mtlLayer.colorspace = CGColorSpaceCreateWithName(kCGColorSpaceITUR_2020_PQ_EOTF);
+/*		case VK_COLOR_SPACE_HDR10_ST2084_EXT:
+			_mtlLayer.colorspace = CGColorSpaceCreateWithName(kCGColorSpaceITUR_2020_PQ);
 			_mtlLayer.wantsExtendedDynamicRangeContentMVK = YES;
-			break;
-		case VK_COLOR_SPACE_HDR10_HLG_EXT:
-			_mtlLayer.colorspace = CGColorSpaceCreateWithName(kCGColorSpaceITUR_2020_HLG);
-			_mtlLayer.wantsExtendedDynamicRangeContentMVK = YES;
-			break;
+			break;*/
+// Awaiting macOS 11.0 and iOS/tvOS 14 to build with kCGColorSpaceITUR_2100_HLG
+// The previous value kCGColorSpaceITUR_2020_HLG now incorrectly breaks App Store
+//		case VK_COLOR_SPACE_HDR10_HLG_EXT:
+//			_mtlLayer.colorspaceNameMVK = kCGColorSpaceITUR_2100_HLG;
+//			_mtlLayer.wantsExtendedDynamicRangeContentMVK = YES;
+//			break;
 		case VK_COLOR_SPACE_ADOBERGB_NONLINEAR_EXT:
 			_mtlLayer.colorspace = CGColorSpaceCreateWithName(kCGColorSpaceAdobeRGB1998);
 			break;
